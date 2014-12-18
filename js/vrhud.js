@@ -13,6 +13,7 @@ function VRHud() {
 	this.enabled = false;
 	this.leapActivated = false;
 	this.activeTweens = [];
+	this.hiding = false;
 
 	function loadJson(url) {
 		return new Promise( function(resolve, reject) {
@@ -73,9 +74,11 @@ VRHud.prototype.show = function() {
 	var self = this;
 
 	return new Promise( function(resolve, reject) {
-		if (!self.visible) {
+		if (!self.visible || self.hiding) {
+
 			self.layout.visible = true;
 			self.visible = true;
+			self.stopAnimation();
 			var countCompleted = 0;
 
 			var buttonPlungers = self.d23.getNodesByClass('fav').map( function(node){return node.mesh;} );
@@ -85,7 +88,7 @@ VRHud.prototype.show = function() {
 				var holder = button.parent;
 
 				// this offsets appear to do.. nothing..
-				holder.position.set(holder.userData.position.x, holder.userData.position.y - 1, holder.userData.position.z + 1);
+				//holder.position.set(holder.userData.position.x, holder.userData.position.y - 1, holder.userData.position.z + 1);
 
 				var tween = new TWEEN.Tween( holder.position )
 					//.to( mesh.userData.position, 700 ) // For some reason, this seems to append NaN to the .position constructor method source. https://github.com/sole/tween.js/issues/175
@@ -101,7 +104,7 @@ VRHud.prototype.show = function() {
 				self.activeTweens.push(tween);
 
 				//mesh.scale.set(mesh.userData.scale.x * 0.75, mesh.userData.scale.y * 0.75, mesh.userData.scale.z);
-				holder.scale.copy(holder.userData.scale).multiplyScalar(0.75); // z scale should be no-op (unless used by bend?)
+				//holder.scale.copy(holder.userData.scale).multiplyScalar(0.75); // z scale should be no-op (unless used by bend?)
 
 				tween = new TWEEN.Tween( holder.scale )
 					.to( { x: holder.userData.scale.x, y: holder.userData.scale.y, z: holder.userData.scale.z} , 500 )
@@ -137,20 +140,19 @@ VRHud.prototype.hide = function(instantaneous) {
 	return new Promise( function(resolve, reject) {
 		if (self.visible) {
 
-			for (var i = 0; i < self.activeTweens.length; i++){
-				self.activeTweens[i].stop();
-			}
-
-			self.activeTweens = [];
+			self.stopAnimation();
 
 			var onComplete =  function() {
 				self.layout.visible = false;
 				self.visible = false;
 				self.setInteractable(false);
+				self.hiding = false;
 				resolve();
 			};
 
 			if (instantaneous) return onComplete();
+
+			self.hiding = true;
 
 			var countCompleted = 0;
 			var nodes = self.d23.getNodesByClass('fav');
@@ -163,7 +165,7 @@ VRHud.prototype.hide = function(instantaneous) {
 
 				mesh.material.opacity = 1;
 
-				new TWEEN.Tween( mesh.material )
+				var tween = new TWEEN.Tween( mesh.material )
 					.to({ opacity: 0 }, 500 )
 					.easing(TWEEN.Easing.Exponential.Out)
 					.delay( i * 80 )
@@ -172,10 +174,11 @@ VRHud.prototype.hide = function(instantaneous) {
 						if (countCompleted === nodes.length) onComplete();
 					})
 					.start();
+
+				self.activeTweens.push(tween);
 			}
 
 			self.leapActivated = false;
-
 
 		} else {
 			// already hidden, so resolve.
@@ -183,6 +186,14 @@ VRHud.prototype.hide = function(instantaneous) {
 		}
 	});
 };
+
+VRHud.prototype.stopAnimation = function(){
+	for (var i = 0; i < this.activeTweens.length; i++){
+		this.activeTweens[i].stop();
+	}
+
+	this.activeTweens = [];
+}
 
 VRHud.prototype.attachEvents = function(favorites) {
 	var self = this;

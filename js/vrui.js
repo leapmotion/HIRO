@@ -182,28 +182,35 @@ VRUi.prototype.rerouteFocusEvents = function() {
 
 VRUi.prototype.toggleHud = function() {
 	if (!this.hud.visible && this.hud.enabled) {
-		// show
-		this.background.visible = true;
-		this.backgroundShow();
-		this.hud.show();
-		this.title.show(1000);
-		this.updateCursorState();
-		VRManager.currentDemo.blur();
-
-
+		this.showHud();
 	} else if (this.hud.visible && this.hud.enabled) {
-		// hide
-		this.backgroundHide(1000);
-		this.cursor.disable();
-		this.hud.hide().then( function(){
-			// Disable a second time, in case the LMC began streaming during animation.
-			this.cursor.disable();
-		}.bind(this) );
-		this.title.hide(1000);
-		VRManager.currentDemo.focus();
+		this.hideHud();
 	} else {
 		this.hud.hide();
 	}
+};
+
+VRUi.prototype.showHud = function() {
+	this.background.visible = true;
+	this.backgroundShow();
+	this.hud.show();
+	this.title.show(1000);
+	this.updateCursorState();
+	VRManager.currentDemo.blur();
+};
+
+VRUi.prototype.hideHud = function() {
+	this.backgroundHide(1000);
+	this.cursor.disable();
+	this.hud.hide().then( function(){
+		// Disable a second time, in case the LMC began streaming during animation.
+		this.cursor.disable();
+	}.bind(this) );
+	this.title.hide(1000);
+	VRManager.currentDemo.focus();
+	setTimeout(function(){
+		this.showHud();
+	}.bind(this), 100);
 };
 
 VRUi.prototype.updateCursorState = function(){
@@ -462,13 +469,14 @@ VRUi.prototype.initLeapInteraction = function() {
 	this.scene.add(dolly);
 	this.camera.add(light);
 
+
 	Leap.loopController.on('frame', function(frame){
 
 		if (frame.hands.length > 1){
 
 			if (!this.hud.visible){
 
-				this.toggleHud();
+				this.showHud();
 				this.hud.leapActivated = true;
 
 			}
@@ -479,9 +487,18 @@ VRUi.prototype.initLeapInteraction = function() {
 
 			if ( this.hud.visible && this.hud.leapActivated ) {
 
-				this.toggleHud();
+				this.hideHud();
 
 			}
+
+		}
+
+		// Catch momentary disappearances of a single hand
+		// Might be nicer to wrap this up in a handLost or handLostStrength plugin?
+		if ( frame.hands.length === 1 && this.hud.hiding ) {
+
+			this.showHud();
+			this.hud.leapActivated = true;
 
 		}
 
